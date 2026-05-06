@@ -1,14 +1,16 @@
-from fastapi import HTTPException
+from fastapi import HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
-from app.models.task import Task
-from app.models.task import TaskHistory  # if you added it
+
+from app.models.task import Task, TaskHistory
+from app.schemas.task import TaskOut
 
 
 VALID_TRANSITIONS = {
     "todo": ["in_progress"],
     "in_progress": ["review"],
     "review": ["done"],
-    "done": []
+    "done": [],
 }
 
 
@@ -16,69 +18,72 @@ def update_task_status(task_id: int, new_status: str, user, db: Session):
     task = db.query(Task).filter(Task.id == task_id).first()
 
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found",
+        )
 
     current_status = task.status
 
-    # 🔴 VALIDATION (MOST IMPORTANT)
-    if new_status not in VALID_TRANSITIONS[current_status]:
+    if new_status not in VALID_TRANSITIONS:
         raise HTTPException(
-            status_code=400,
-            detail=f"Invalid transition: {current_status} → {new_status}"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown task status: {new_status}",
         )
 
-    # 🔐 ROLE CHECK
-    if user.role == "employee" and task.assigned_to_id != user.id:
-        raise HTTPException(status_code=403, detail="Not allowed")
+    if new_status not in VALID_TRANSITIONS.get(current_status, []):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid transition: {current_status} -> {new_status}",
+        )
 
-    # 🔄 UPDATE
+    if user.role == "employee" and task.assigned_to_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Employees can only update assigned tasks",
+        )
+
+    if (
+        user.role == "manager"
+        and task.created_by_id != user.id
+        and task.assigned_to_id != user.id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Managers can only update tasks they created or own",
+        )
+
     task.status = new_status
     task.updated_by = user.id
 
-    # 🧾 OPTIONAL: HISTORY TRACKING
-    try:
-        history = TaskHistory(
+    db.add(
+        TaskHistory(
             task_id=task.id,
             old_status=current_status,
             new_status=new_status,
-            changed_by=user.id
+            changed_by=user.id,
         )
-        db.add(history)
-    except:
-        pass  # ignore if model not present
+    )
 
     db.commit()
     db.refresh(task)
 
     return task
 
-from sqlalchemy.orm import Session
-from app.models.task import Task
-from app.schemas.task import TaskOut
-
 
 def get_kanban_board(user, db: Session):
     query = db.query(Task)
 
-    # 🔐 ROLE FILTERING
     if user.role == "employee":
         query = query.filter(Task.assigned_to_id == user.id)
-
     elif user.role == "manager":
-        query = query.filter(Task.created_by_id == user.id)
+        query = query.filter(
+            or_(Task.created_by_id == user.id, Task.assigned_to_id == user.id)
+        )
 
-    tasks = query.all()
+    board = {status: [] for status in VALID_TRANSITIONS}
 
-    board = {
-        "todo": [],
-        "in_progress": [],
-        "review": [],
-        "done": []
-    }
-
-    for task in tasks:
-        task_data = TaskOut.model_validate(task)
-
-        board[task.status].append(task_data)
+    for task in query.order_by(Task.updated_at.desc()).all():
+        board.setdefault(task.status, []).append(TaskOut.model_validate(task))
 
     return board

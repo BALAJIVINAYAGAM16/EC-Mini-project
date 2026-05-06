@@ -1,55 +1,106 @@
-// components/Comments.jsx
 import { useEffect, useState } from "react";
 import API from "../api/axios";
 
 export default function Comments({ taskId }) {
   const [comments, setComments] = useState([]);
-  const [text, setText] = useState("");
+  const [content, setContent] = useState("");
+  const [isInternal, setIsInternal] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchComments();
-  }, []);
+    if (!taskId) return;
+    let ignore = false;
 
-  const fetchComments = async () => {
-    const res = await API.get(`/tasks/${taskId}/comments`);
-    setComments(res.data);
-  };
+    async function fetchComments() {
+      try {
+        const res = await API.get(`/tasks/${taskId}/comments`);
+        if (!ignore) setComments(res.data);
+      } catch (err) {
+        console.error(err);
+        if (!ignore) setError("Unable to load comments.");
+      }
+    }
 
-  const addComment = async () => {
-    await API.post(`/tasks/${taskId}/comments`, {
-      content: text,
-      is_internal: false,
-    });
-    setText("");
     fetchComments();
+    return () => {
+      ignore = true;
+    };
+  }, [taskId]);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!content.trim()) return;
+
+    try {
+      const res = await API.post(`/tasks/${taskId}/comments`, {
+        content,
+        is_internal: isInternal,
+      });
+
+      setComments((current) => [res.data, ...current]);
+      setContent("");
+      setIsInternal(false);
+      setError("");
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.detail || "Unable to add comment.");
+    }
   };
 
   return (
-    <div className="p-4">
-      <h3 className="font-bold mb-2">Comments</h3>
+    <div className="bg-white p-4 rounded-lg shadow w-full">
+      <h2 className="text-lg font-semibold mb-4">Comments</h2>
+      {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
 
-      <div className="space-y-2">
-        {comments.map((c) => (
-          <div key={c.id} className="bg-gray-100 p-2 rounded">
-            <p>{c.content}</p>
-            <small>{c.created_at}</small>
+      <div className="space-y-3 max-h-80 overflow-y-auto mb-4">
+        {comments.map((comment) => (
+          <div
+            key={comment.id}
+            className={`p-3 rounded-lg ${
+              comment.is_internal
+                ? "bg-yellow-100 border-l-4 border-yellow-500"
+                : "bg-gray-100"
+            }`}
+          >
+            <p className="text-sm">{comment.content}</p>
+
+            <div className="text-xs text-gray-500 mt-1">
+              User: {comment.user_id} |{" "}
+              {new Date(comment.created_at).toLocaleString()}
+            </div>
+
+            {comment.is_internal && (
+              <span className="text-xs text-yellow-700 font-semibold">
+                Internal Note
+              </span>
+            )}
           </div>
         ))}
       </div>
 
-      <div className="mt-3 flex gap-2">
-        <input
-          className="border p-2 w-full"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
+      <form onSubmit={handleSubmit}>
+        <textarea
+          className="w-full border p-2 rounded mb-2"
+          placeholder="Write a comment..."
+          value={content}
+          onChange={(event) => setContent(event.target.value)}
         />
-        <button
-          onClick={addComment}
-          className="bg-blue-500 text-white px-3 rounded"
-        >
-          Add
-        </button>
-      </div>
+
+        <div className="flex items-center justify-between">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={isInternal}
+              onChange={(event) => setIsInternal(event.target.checked)}
+            />
+            Internal
+          </label>
+
+          <button className="bg-blue-500 text-white px-4 py-2 rounded">
+            Send
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

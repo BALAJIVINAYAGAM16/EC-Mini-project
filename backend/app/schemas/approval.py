@@ -15,8 +15,22 @@ class ApprovalAction(BaseModel):
 class ApprovalOut(BaseModel):
     id: int
     title: str
+    description: Optional[str] = None
+    requested_by: int
     status: str
     current_level: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ApprovalHistoryOut(BaseModel):
+    id: int
+    approval_id: int
+    action_by: int
+    action: str
+    comment: Optional[str] = None
     created_at: datetime
 
     class Config:

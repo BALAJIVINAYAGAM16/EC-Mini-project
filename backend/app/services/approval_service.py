@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+
 from app.models.approval import Approval
 from app.models.approval_history import ApprovalHistory
 
@@ -8,7 +9,7 @@ def create_approval(data, user, db: Session):
     approval = Approval(
         title=data.title,
         description=data.description,
-        requested_by=user.id
+        requested_by=user.id,
     )
 
     db.add(approval)
@@ -24,39 +25,40 @@ def take_action(approval_id: int, data, user, db: Session):
     if not approval:
         raise HTTPException(404, "Approval not found")
 
-    # 🔐 Role-based approval logic
+    action = data.action.lower()
+    if action not in {"approve", "reject", "hold"}:
+        raise HTTPException(400, "Invalid approval action")
+
+    if approval.status in {"approved", "rejected"}:
+        raise HTTPException(400, "Approval is already finalized")
+
     if approval.current_level == "manager" and user.role != "manager":
         raise HTTPException(403, "Only manager can approve at this level")
 
     if approval.current_level == "admin" and user.role != "admin":
         raise HTTPException(403, "Only admin can approve at this level")
 
-    # 🚫 Reject must have comment
-    if data.action == "reject" and not data.comment:
+    if action == "reject" and not data.comment:
         raise HTTPException(400, "Comment required for rejection")
 
-    # 🔄 Logic
-    if data.action == "approve":
+    if action == "approve":
         if approval.current_level == "manager":
-            approval.current_level = "admin"  # escalate
+            approval.current_level = "admin"
         else:
             approval.status = "approved"
-
-    elif data.action == "reject":
+    elif action == "reject":
         approval.status = "rejected"
-
-    elif data.action == "hold":
+    elif action == "hold":
         approval.status = "pending"
 
-    # 🧾 History
-    history = ApprovalHistory(
-        approval_id=approval.id,
-        action_by=user.id,
-        action=data.action,
-        comment=data.comment
+    db.add(
+        ApprovalHistory(
+            approval_id=approval.id,
+            action_by=user.id,
+            action=action,
+            comment=data.comment,
+        )
     )
-
-    db.add(history)
     db.commit()
     db.refresh(approval)
 
@@ -69,10 +71,13 @@ def get_approvals(user, db: Session):
     if user.role == "employee":
         query = query.filter(Approval.requested_by == user.id)
 
-    return query.all()
+    return query.order_by(Approval.created_at.desc()).all()
 
 
 def get_history(approval_id: int, db: Session):
-    return db.query(ApprovalHistory).filter(
-        ApprovalHistory.approval_id == approval_id
-    ).all()
+    return (
+        db.query(ApprovalHistory)
+        .filter(ApprovalHistory.approval_id == approval_id)
+        .order_by(ApprovalHistory.created_at.desc())
+        .all()
+    )

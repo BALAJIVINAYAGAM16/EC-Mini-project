@@ -6,6 +6,8 @@ from app.db.database import get_db
 from app.models.task import Task
 from app.models.user import User
 from app.schemas.task import TaskAssign, TaskCreate, TaskOut, TaskUpdate
+from app.schemas.task import TaskStatusUpdate
+from app.services.kanban_service import get_kanban_board, update_task_status
 
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -79,6 +81,14 @@ def get_tasks(
     )
 
 
+@router.get("/kanban")
+def get_kanban(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return get_kanban_board(current_user, db)
+
+
 @router.get("/{task_id}", response_model=TaskOut)
 def get_task(
     task_id: int,
@@ -89,6 +99,16 @@ def get_task(
     if not _can_access_task(task, current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
     return task
+
+
+@router.patch("/{task_id}/status", response_model=TaskOut)
+def patch_task_status(
+    task_id: int,
+    payload: TaskStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return update_task_status(task_id, payload.status.value, current_user, db)
 
 
 @router.put("/{task_id}", response_model=TaskOut)
@@ -112,6 +132,11 @@ def update_task(
 
     if "assigned_to_id" in changes and changes["assigned_to_id"] is not None:
         _ensure_user_exists(db, changes["assigned_to_id"])
+
+    if "status" in changes:
+        status_value = changes["status"].value
+        if status_value != task.status:
+            return update_task_status(task_id, status_value, current_user, db)
 
     for key, value in changes.items():
         if hasattr(value, "value"):

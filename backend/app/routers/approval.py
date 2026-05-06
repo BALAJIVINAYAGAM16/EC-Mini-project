@@ -4,7 +4,7 @@ from typing import List
 
 from app.db.database import get_db
 from app.core.dependencies import get_current_user
-from app.schemas.approval import ApprovalCreate, ApprovalAction, ApprovalOut
+from app.schemas.approval import ApprovalCreate, ApprovalAction, ApprovalHistoryOut, ApprovalOut
 from app.services.approval_service import (
     create_approval,
     take_action,
@@ -46,7 +46,7 @@ def action(
 
 
 # 📜 History
-@router.get("/{approval_id}/history")
+@router.get("/{approval_id}/history", response_model=List[ApprovalHistoryOut])
 def history(
     approval_id: int,
     db: Session = Depends(get_db)

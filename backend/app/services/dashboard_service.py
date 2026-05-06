@@ -1,58 +1,51 @@
-from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models.task import Task
+from sqlalchemy.orm import Session
+
 from app.models.approval import Approval
+from app.models.task import Task
 
 
-# 📊 SUMMARY
-def get_dashboard_summary(user, db: Session):
+def _task_query_for_user(user, db: Session):
     query = db.query(Task)
 
-    # 🔐 Role filtering
     if user.role == "employee":
-        query = query.filter(Task.assigned_to_id == user.id)
+        return query.filter(Task.assigned_to_id == user.id)
 
-    elif user.role == "manager":
-        query = query.filter(Task.created_by_id == user.id)
+    if user.role == "manager":
+        return query.filter(Task.created_by_id == user.id)
 
-    total_tasks = query.count()
+    return query
 
-    # Count by status
+
+def get_dashboard_summary(user, db: Session):
+    task_query = _task_query_for_user(user, db)
+    total_tasks = task_query.count()
+
     status_counts = {
-    status: count
-    for status, count in (
-        db.query(Task.status, func.count(Task.id))
+        status: count
+        for status, count in task_query.with_entities(Task.status, func.count(Task.id))
         .group_by(Task.status)
         .all()
-    )
-}
-    completed = status_counts.get("done", 0)
+    }
 
-    # Pending approvals
-    pending_approvals = db.query(Approval).filter(
-        Approval.status == "pending"
-    ).count()
+    completed = status_counts.get("done", 0)
+    approval_query = db.query(Approval)
+    if user.role == "employee":
+        approval_query = approval_query.filter(Approval.requested_by == user.id)
 
     return {
         "total_tasks": total_tasks,
         "status_distribution": status_counts,
+        "pending_tasks": total_tasks - completed,
         "completed_tasks": completed,
-        "pending_approvals": pending_approvals
+        "pending_approvals": approval_query.filter(Approval.status == "pending").count(),
     }
 
 
-# 📈 TASK DISTRIBUTION
 def get_task_distribution(user, db: Session):
-    query = db.query(Task)
-
-    if user.role == "employee":
-        query = query.filter(Task.assigned_to_id == user.id)
-
-    elif user.role == "manager":
-        query = query.filter(Task.created_by_id == user.id)
-
     data = (
-        db.query(Task.status, func.count(Task.id))
+        _task_query_for_user(user, db)
+        .with_entities(Task.status, func.count(Task.id))
         .group_by(Task.status)
         .all()
     )
@@ -60,7 +53,6 @@ def get_task_distribution(user, db: Session):
     return [{"status": status, "count": count} for status, count in data]
 
 
-# 📋 APPROVAL STATS
 def get_approval_stats(db: Session):
     data = (
         db.query(Approval.status, func.count(Approval.id))
@@ -68,4 +60,4 @@ def get_approval_stats(db: Session):
         .all()
     )
 
-    return [{"status": status, "count": count} for status, count in data]
+    return {status: count for status, count in data}

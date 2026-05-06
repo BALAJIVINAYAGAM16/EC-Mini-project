@@ -6,6 +6,8 @@ import CreateTask from "./pages/CreateTask";
 import EditTask from "./pages/Edittask";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Users from "./pages/Users";
+import KanbanBoard from "./components/KanbanBoard";
+import ApprovalPanel from "./components/ApprovalPanel";
 
 function App() {
   return (
@@ -42,6 +44,22 @@ function App() {
     <Users />
   </ProtectedRoute>
 } />
+        <Route
+          path="/kanban"
+          element={
+            <ProtectedRoute>
+              <KanbanBoard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/approvals"
+          element={
+            <ProtectedRoute>
+              <ApprovalPanel />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );

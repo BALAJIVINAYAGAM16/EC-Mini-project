@@ -1,4 +1,3 @@
-// src/components/TaskCard.jsx
 import { useState } from "react";
 import Comments from "./Comments";
 
@@ -6,12 +5,12 @@ export default function TaskCard({ task }) {
   const [showComments, setShowComments] = useState(false);
 
   const getPriorityColor = (priority) => {
-    switch (priority) {
-      case "HIGH":
+    switch ((priority || "").toLowerCase()) {
+      case "high":
         return "bg-red-500";
-      case "MEDIUM":
+      case "medium":
         return "bg-yellow-500";
-      case "LOW":
+      case "low":
         return "bg-green-500";
       default:
         return "bg-gray-400";
@@ -19,57 +18,45 @@ export default function TaskCard({ task }) {
   };
 
   return (
-    <div className="bg-white p-3 mb-3 rounded-xl shadow hover:shadow-md transition">
-      
-      {/* Title */}
+    <div className="bg-white p-3 rounded-lg shadow hover:shadow-md transition">
       <h3 className="font-semibold text-gray-800">{task.title}</h3>
 
-      {/* Description */}
       <p className="text-sm text-gray-500 mt-1 line-clamp-2">
-        {task.description}
+        {task.description || "No description"}
       </p>
 
-      {/* Priority + Status */}
       <div className="flex justify-between items-center mt-3">
-        
-        {/* Priority Badge */}
         <span
           className={`text-xs text-white px-2 py-1 rounded ${getPriorityColor(
             task.priority
           )}`}
         >
-          {task.priority || "NORMAL"}
+          {task.priority || "medium"}
         </span>
 
-        {/* Status */}
-        <span className="text-xs text-gray-600">
-          {task.status}
-        </span>
+        <span className="text-xs text-gray-600">{task.status}</span>
       </div>
 
-      {/* Assigned User */}
       <div className="mt-2 text-xs text-gray-500">
-        👤 {task.assigned_to || "Unassigned"}
+        Assigned to: {task.assigned_to_name || "Unassigned"}
       </div>
 
-      {/* Footer */}
       <div className="flex justify-between items-center mt-3">
-        
-        {/* Created Date */}
         <span className="text-xs text-gray-400">
-          {new Date(task.created_at).toLocaleDateString()}
+          {task.created_at
+            ? new Date(task.created_at).toLocaleDateString()
+            : "No date"}
         </span>
 
-        {/* Comments Button */}
         <button
-          onClick={() => setShowComments(!showComments)}
+          type="button"
+          onClick={() => setShowComments((value) => !value)}
           className="text-blue-500 text-xs hover:underline"
         >
-          💬 Comments
+          Comments
         </button>
       </div>
 
-      {/* Comments Section */}
       {showComments && (
         <div className="mt-3 border-t pt-2">
           <Comments taskId={task.id} />

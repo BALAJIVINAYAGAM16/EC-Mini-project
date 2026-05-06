@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../api/axios";
 import { assignTask, deleteTask } from "../api/taskApi";
+import DashboardInsights from "../components/Dashboard";
 import Navbar from "../components/Navbar";
 import UserSelect from "../components/UserSelect";
 
@@ -80,6 +81,8 @@ export default function Dashboard() {
       <Navbar />
 
       <div className="p-6">
+        <DashboardInsights />
+
         <div className="mb-6 flex items-center justify-between gap-4">
           <h2 className="text-2xl font-bold text-gray-800">Tasks</h2>
           <Link
