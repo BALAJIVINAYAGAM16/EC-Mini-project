@@ -1,34 +1,25 @@
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
-
-from app.db.database import Base, engine
-from app.models.task import Task  # noqa: F401
-from app.models.user import User  # noqa: F401
-from app.routers import auth, task
 from fastapi.middleware.cors import CORSMiddleware
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    yield
+from app.db.database import Base, engine
+from app.db.schema_sync import ensure_schema
+from app.routers import auth, task, users, kanban, comments, approval, dashboard  # NEW
 
+app = FastAPI()
+Base.metadata.create_all(bind=engine)
+ensure_schema(engine)
 
-
-
-app = FastAPI(lifespan=lifespan)
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+app.include_router(auth.router)
+app.include_router(task.router)
+app.include_router(users.router)
+app.include_router(kanban.router)  # NEW'
+app.include_router(comments.router)
+app.include_router(approval.router)
+app.include_router(dashboard.router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,   # or ["*"] for testing
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-app.include_router(auth.router)
-app.include_router(task.router)

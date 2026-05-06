@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { fetchUsers } from "../api/userApi";
+import { fetchAssignableUsers } from "../api/userApi";
 
 export default function UserSelect({ value, onChange }) {
   const [users, setUsers] = useState([]);
 
   useEffect(() => {
-    fetchUsers()
+    fetchAssignableUsers()
       .then((data) => {
         setUsers(Array.isArray(data) ? data : data.users || []);
       })

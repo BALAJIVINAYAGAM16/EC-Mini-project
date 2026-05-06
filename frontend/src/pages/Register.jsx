@@ -2,6 +2,10 @@ import { useState } from "react";
 import API from "../api/axios";
 import { Link, useNavigate } from "react-router-dom";
 
+const PASSWORD_MAX_BYTES = 72;
+
+const getByteLength = (value) => new TextEncoder().encode(value).length;
+
 export default function Register() {
   const [form, setForm] = useState({
     name: "",
@@ -9,13 +13,30 @@ export default function Register() {
     password: "",
     role: "employee",
   });
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await API.post("/auth/register", form);
-    navigate("/login");
+    setError("");
+
+    if (getByteLength(form.password) > PASSWORD_MAX_BYTES) {
+      setError("Password cannot be longer than 72 bytes.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await API.post("/auth/register", form);
+      navigate("/login");
+    } catch (err) {
+      setError(err.response?.data?.detail || "Unable to create your account.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -28,6 +49,12 @@ export default function Register() {
           <h1 className="text-2xl font-bold text-slate-900">Create account</h1>
           <p className="text-sm text-slate-500">Register with your project role.</p>
         </div>
+
+        {error && (
+          <p className="rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-600">
+            {error}
+          </p>
+        )}
 
         <input
           placeholder="Name"
@@ -43,6 +70,7 @@ export default function Register() {
         <input
           type="password"
           placeholder="Password"
+          maxLength={PASSWORD_MAX_BYTES}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
           onChange={(e) => setForm({ ...form, password: e.target.value })}
         />
@@ -56,8 +84,11 @@ export default function Register() {
           <option value="admin">Admin</option>
         </select>
 
-        <button className="w-full rounded-lg bg-blue-600 py-2 text-white hover:bg-blue-700 transition">
-          Register
+        <button
+          disabled={isSubmitting}
+          className="w-full rounded-lg bg-blue-600 py-2 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+        >
+          {isSubmitting ? "Creating account..." : "Register"}
         </button>
 
         <p className="text-center text-sm text-slate-500">
