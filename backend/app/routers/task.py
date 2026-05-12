@@ -8,6 +8,7 @@ from app.models.user import User
 from app.schemas.task import TaskAssign, TaskCreate, TaskOut, TaskUpdate
 from app.schemas.task import TaskStatusUpdate
 from app.services.kanban_service import get_kanban_board, update_task_status
+from app.services.audit_service import log_action
 
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -56,6 +57,10 @@ def create_task(
     db.add(new_task)
     db.commit()
     db.refresh(new_task)
+    
+    # Log audit
+    log_action(db, current_user.id, "create", "task", new_task.id)
+    
     return new_task
 
 
@@ -146,6 +151,10 @@ def update_task(
 
     db.commit()
     db.refresh(task)
+    
+    # Log audit
+    log_action(db, current_user.id, "update", "task", task_id)
+    
     return task
 
 
@@ -153,11 +162,15 @@ def update_task(
 def delete_task(
     task_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_role(["admin"])),
+    current_user: User = Depends(require_role(["admin"])),
 ):
     task = _get_task_or_404(db, task_id)
     db.delete(task)
     db.commit()
+    
+    # Log audit
+    log_action(db, current_user.id, "delete", "task", task_id)
+    
     return {"message": "Task deleted"}
 
 
@@ -177,4 +190,8 @@ def assign_task(
     task.updated_by = current_user.id
     db.commit()
     db.refresh(task)
+    
+    # Log audit
+    log_action(db, current_user.id, "assign", "task", task_id)
+    
     return task

@@ -3,61 +3,50 @@ from sqlalchemy.orm import Session
 
 from app.models.approval import Approval
 from app.models.task import Task
+from app.services.ai_service import generate_ai_summary
+from app.services.task_service import WORKFLOW_STATUSES, visible_tasks_query
 
 
-def _task_query_for_user(user, db: Session):
-    query = db.query(Task)
-
-    if user.role == "employee":
-        return query.filter(Task.assigned_to_id == user.id)
-
-    if user.role == "manager":
-        return query.filter(Task.created_by_id == user.id)
-
-    return query
+def _visible_tasks(user, db: Session):
+    return visible_tasks_query(db, user)
 
 
 def get_dashboard_summary(user, db: Session):
-    task_query = _task_query_for_user(user, db)
-    total_tasks = task_query.count()
+    query = _visible_tasks(user, db)
+    total_tasks = query.count()
+    grouped = query.with_entities(Task.status, func.count(Task.id)).group_by(Task.status).all()
+    status_counts = {status_name: 0 for status_name in WORKFLOW_STATUSES}
+    status_counts.update({status_name: count for status_name, count in grouped})
 
-    status_counts = {
-        status: count
-        for status, count in task_query.with_entities(Task.status, func.count(Task.id))
-        .group_by(Task.status)
-        .all()
-    }
-
-    completed = status_counts.get("done", 0)
-    approval_query = db.query(Approval)
+    approval_query = db.query(Approval).filter(Approval.status == "pending")
     if user.role == "employee":
         approval_query = approval_query.filter(Approval.requested_by == user.id)
 
+    tasks = query.all()
     return {
         "total_tasks": total_tasks,
+        "tasks_by_status": status_counts,
         "status_distribution": status_counts,
-        "pending_tasks": total_tasks - completed,
-        "completed_tasks": completed,
-        "pending_approvals": approval_query.filter(Approval.status == "pending").count(),
+        "completed_tasks": status_counts.get("done", 0),
+        "pending_approvals": approval_query.count(),
+        **generate_ai_summary(tasks),
     }
 
 
 def get_task_distribution(user, db: Session):
-    data = (
-        _task_query_for_user(user, db)
-        .with_entities(Task.status, func.count(Task.id))
-        .group_by(Task.status)
-        .all()
-    )
-
-    return [{"status": status, "count": count} for status, count in data]
+    data = _visible_tasks(user, db).with_entities(Task.status, func.count(Task.id)).group_by(Task.status).all()
+    counts = {status_name: 0 for status_name in WORKFLOW_STATUSES}
+    counts.update({status_name: count for status_name, count in data})
+    return [{"status": status_name, "count": count} for status_name, count in counts.items()]
 
 
-def get_approval_stats(db: Session):
-    data = (
-        db.query(Approval.status, func.count(Approval.id))
-        .group_by(Approval.status)
-        .all()
-    )
+def get_approval_stats(user, db: Session):
+    query = db.query(Approval)
 
-    return {status: count for status, count in data}
+    if user.role == "employee":
+        query = query.filter(Approval.requested_by == user.id)
+
+    data = query.with_entities(Approval.status, func.count(Approval.id)).group_by(Approval.status).all()
+    counts = {"approved": 0, "rejected": 0, "pending": 0}
+    counts.update({status_name: count for status_name, count in data})
+    return counts

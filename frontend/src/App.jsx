@@ -8,6 +8,10 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Users from "./pages/Users";
 import KanbanBoard from "./components/KanbanBoard";
 import ApprovalPanel from "./components/ApprovalPanel";
+import Documents from "./pages/Documents";
+import AuditLog from "./pages/AuditLog";
+import Notifications from "./pages/Notifications";
+import AIInsights from "./pages/AIInsights";
 
 function App() {
   return (
@@ -57,6 +61,38 @@ function App() {
           element={
             <ProtectedRoute>
               <ApprovalPanel />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/documents"
+          element={
+            <ProtectedRoute>
+              <Documents />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/audit-logs"
+          element={
+            <ProtectedRoute>
+              <AuditLog />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ai-insights"
+          element={
+            <ProtectedRoute>
+              <AIInsights />
             </ProtectedRoute>
           }
         />

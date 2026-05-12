@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.models.approval import Approval
 from app.models.approval_history import ApprovalHistory
+from app.services.audit_service import log_action
 
 
 def create_approval(data, user, db: Session):
@@ -15,6 +16,9 @@ def create_approval(data, user, db: Session):
     db.add(approval)
     db.commit()
     db.refresh(approval)
+    
+    # Log audit
+    log_action(db, user.id, "create_approval", "approval", approval.id)
 
     return approval
 
@@ -61,6 +65,9 @@ def take_action(approval_id: int, data, user, db: Session):
     )
     db.commit()
     db.refresh(approval)
+    
+    # Log audit
+    log_action(db, user.id, f"approval_{action}", "approval", approval.id)
 
     return approval
 

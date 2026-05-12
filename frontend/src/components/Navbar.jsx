@@ -2,6 +2,7 @@ import { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../context/auth-context";
 import API from "../api/axios";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import NotificationBell from "./NotificationBell";
 
 export default function Navbar() {
   const { logout } = useContext(AuthContext);
@@ -69,15 +70,7 @@ export default function Navbar() {
             </>
           )}
 
-          {/* 🔔 Notification */}
-          {user && (
-            <button className="relative text-slate-600 hover:text-slate-800">
-              🔔
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1 rounded-full">
-                2
-              </span>
-            </button>
-          )}
+          {user && <NotificationBell />}
 
           {/* 👤 User */}
           {user ? (
