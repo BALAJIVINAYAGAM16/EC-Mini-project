@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Download, FileText, Trash2, Upload } from "lucide-react";
 import { toast } from "../utils/toast";
 import API from "../api/axios";
 import { assignTask } from "../api/taskApi";
@@ -17,9 +18,36 @@ export default function KanbanBoard() {
   const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [documentsByTask, setDocumentsByTask] = useState({});
+  const [uploadingTaskId, setUploadingTaskId] = useState(null);
 
   const canAssign =
     currentUser?.role === "admin" || currentUser?.role === "manager";
+
+  const loadDocumentsForBoard = useCallback(async (nextBoard, shouldApply = () => true) => {
+    const tasks = columns.flatMap((column) => nextBoard[column.key] || []);
+
+    await Promise.all(
+      tasks.map(async (task) => {
+        try {
+          const res = await API.get(`/documents/task/${task.id}`);
+          if (shouldApply()) {
+            setDocumentsByTask((cur) => ({
+              ...cur,
+              [task.id]: Array.isArray(res.data) ? res.data : [],
+            }));
+          }
+        } catch {
+          if (shouldApply()) {
+            setDocumentsByTask((cur) => ({
+              ...cur,
+              [task.id]: [],
+            }));
+          }
+        }
+      })
+    );
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -33,8 +61,10 @@ export default function KanbanBoard() {
           return;
         }
 
-        setBoard(normalizeBoard(boardRes.data));
+        const nextBoard = normalizeBoard(boardRes.data);
+        setBoard(nextBoard);
         setCurrentUser(userRes.data);
+        loadDocumentsForBoard(nextBoard, () => isMounted);
 
         if (["admin", "manager"].includes(userRes.data.role)) {
           fetchAssignableUsers()
@@ -60,7 +90,78 @@ export default function KanbanBoard() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [loadDocumentsForBoard]);
+
+  const refreshTaskDocuments = async (taskId) => {
+    try {
+      const res = await API.get(`/documents/task/${taskId}`);
+      setDocumentsByTask((cur) => ({
+        ...cur,
+        [taskId]: Array.isArray(res.data) ? res.data : [],
+      }));
+    } catch {
+      toast.error("Failed to load task documents");
+    }
+  };
+
+  const handleDocumentUpload = async (taskId, file) => {
+    if (!file) {
+      return;
+    }
+
+    try {
+      setUploadingTaskId(taskId);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("task_id", taskId);
+
+      await API.post("/documents/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      toast.success("Document uploaded");
+      refreshTaskDocuments(taskId);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Document upload failed");
+    } finally {
+      setUploadingTaskId(null);
+    }
+  };
+
+  const handleDocumentDownload = async (documentId, fileName) => {
+    try {
+      const res = await API.get(`/documents/${documentId}/download`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Document downloaded");
+    } catch {
+      toast.error("Document download failed");
+    }
+  };
+
+  const handleDocumentDelete = async (taskId, documentId) => {
+    if (!window.confirm("Delete this document?")) {
+      return;
+    }
+
+    try {
+      await API.delete(`/documents/${documentId}`);
+      toast.success("Document deleted");
+      refreshTaskDocuments(taskId);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Document delete failed");
+    }
+  };
 
   const handleDrop = async (status) => {
     if (!dragged || dragged.status === status) {
@@ -206,6 +307,89 @@ export default function KanbanBoard() {
                       </select>
                     </label>
                   )}
+
+                  <div className="mt-4 border-t border-slate-100 pt-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                        <FileText size={14} />
+                        Documents
+                      </div>
+                      <label
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onClick={(event) => event.stopPropagation()}
+                        className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100 ${
+                          uploadingTaskId === task.id
+                            ? "cursor-wait opacity-60"
+                            : "cursor-pointer"
+                        }`}
+                        title="Upload document"
+                      >
+                        <Upload size={15} />
+                        <input
+                          type="file"
+                          className="hidden"
+                          disabled={uploadingTaskId === task.id}
+                          onChange={(event) => {
+                            handleDocumentUpload(
+                              task.id,
+                              event.target.files?.[0]
+                            );
+                            event.target.value = "";
+                          }}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="space-y-2">
+                      {(documentsByTask[task.id] || []).length === 0 ? (
+                        <p className="text-xs text-slate-400">
+                          No documents
+                        </p>
+                      ) : (
+                        documentsByTask[task.id].map((doc) => (
+                          <div
+                            key={doc.id}
+                            className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2 py-2"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-medium text-slate-700">
+                                {doc.file_name}
+                              </p>
+                              <p className="text-[11px] text-slate-500">
+                                v{doc.version}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <button
+                                type="button"
+                                onMouseDown={(event) => event.stopPropagation()}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleDocumentDownload(doc.id, doc.file_name);
+                                }}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-blue-600 transition hover:bg-blue-50"
+                                title="Download document"
+                              >
+                                <Download size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                onMouseDown={(event) => event.stopPropagation()}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleDocumentDelete(task.id, doc.id);
+                                }}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-red-600 transition hover:bg-red-50"
+                                title="Delete document"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

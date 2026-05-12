@@ -40,6 +40,19 @@ def save_uploaded_file(upload_file: UploadFile, user_id: int, task_id: int = Non
         raise
 
 
+def get_next_document_version(db: Session, file_name: str, task_id: int = None) -> int:
+    """Get next version number for a file within the same task/document area."""
+    query = db.query(func.max(Document.version)).filter(Document.file_name == file_name)
+
+    if task_id is None:
+        query = query.filter(Document.task_id.is_(None))
+    else:
+        query = query.filter(Document.task_id == task_id)
+
+    latest = query.scalar()
+    return (latest or 0) + 1
+
+
 def create_document(db: Session, upload_file: UploadFile, user_id: int, task_id: int = None) -> Document:
     """Create a new document record in the database"""
     file_path = save_uploaded_file(upload_file, user_id, task_id)
@@ -53,7 +66,7 @@ def create_document(db: Session, upload_file: UploadFile, user_id: int, task_id:
     document = Document(
         file_name=upload_file.filename,
         file_path=file_path,
-        version=1,
+        version=get_next_document_version(db, upload_file.filename, task_id),
         uploaded_by=user_id,
         task_id=task_id,
         created_at=datetime.utcnow()
