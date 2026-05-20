@@ -1,11 +1,40 @@
 @import "tailwindcss";
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global Layout */
 html,
 body,
 #root {
   min-height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
+/* Base Styling */
 body {
-  margin: 0;
+  font-family: sans-serif;
+  background: #f3f4f6;
+  color: #0f172a;
+}
+
+/* Smooth Rendering */
+* {
+  box-sizing: border-box;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-track {
+  background: #e2e8f0;
 }

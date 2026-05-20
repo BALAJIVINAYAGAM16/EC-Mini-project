@@ -6,15 +6,15 @@ from app.db.database import Base
 class Approval(Base):
     __tablename__ = "approvals"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
     description = Column(String)
 
-    requested_by = Column(Integer, ForeignKey("users.id"))
+    requested_by = Column(Integer, ForeignKey("users.id"), index=True)
 
-    status = Column(String, default="pending")  # pending / approved / rejected
-    current_level = Column(String, default="manager")  # manager → admin
+    status = Column(String, default="pending", index=True)  # pending / approved / rejected
+    current_level = Column(String, default="manager", index=True)  # manager -> admin
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
     user = relationship("User")

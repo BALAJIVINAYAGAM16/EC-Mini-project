@@ -1,7 +1,14 @@
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.activity_log import ActivityLog
+
+
+def get_all_activity_logs(db: Session):
+    return (
+        db.query(ActivityLog)
+        .order_by(ActivityLog.created_at.desc())
+        .all()
+    )
 
 
 def log_activity(
@@ -18,8 +25,11 @@ def log_activity(
         entity_type=entity_type,
         entity_id=entity_id,
     )
+
     db.add(log)
+
     if commit:
         db.commit()
         db.refresh(log)
+
     return log

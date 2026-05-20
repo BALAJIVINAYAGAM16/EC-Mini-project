@@ -1,19 +1,23 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from app.services.websocket_manager import manager
+# routers/websocket_router.py
+
+from fastapi import (
+    APIRouter,
+    WebSocket
+)
+
+from app.services.websocket_manager import (
+    websocket_connection_service
+)
 
 router = APIRouter()
+
 
 @router.websocket("/ws/{user_id}")
 async def websocket_endpoint(
     websocket: WebSocket,
     user_id: int
 ):
-
-    await manager.connect(user_id, websocket)
-
-    try:
-        while True:
-            await websocket.receive_text()
-
-    except WebSocketDisconnect:
-        manager.disconnect(user_id)
+    await websocket_connection_service(
+        websocket,
+        user_id
+    )

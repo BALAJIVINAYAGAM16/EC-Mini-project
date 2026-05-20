@@ -36,7 +36,7 @@ export default function Login() {
         },
       });
 
-      login(res.data.access_token);
+      login(res.data.access_token, res.data.refresh_token);
       navigate("/");
     } catch (err) {
       setError(err.response?.data?.detail || "Unable to connect to the login server.");

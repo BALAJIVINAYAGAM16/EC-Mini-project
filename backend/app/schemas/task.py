@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
+from app.core.validation import sanitize_optional_text, sanitize_text
     
 class TaskStatus(str, Enum):
     todo = "todo"
@@ -33,9 +34,15 @@ class TaskBase(BaseModel):
     @field_validator("title")
     @classmethod
     def validate_title(cls, value: str):
-        if not value.strip():
+        value = sanitize_text(value)
+        if not value:
             raise ValueError("Title cannot be empty")
         return value
+
+    @field_validator("description")
+    @classmethod
+    def sanitize_description(cls, value: Optional[str]):
+        return sanitize_optional_text(value)
 
 
 class TaskCreate(TaskBase):
@@ -48,7 +55,7 @@ class TaskCreate(TaskBase):
 
 
 class TaskUpdate(BaseModel):
-    title: Optional[str] = None
+    title: Optional[str] = Field(default=None, max_length=200)
     description: Optional[str] = None
     status: Optional[TaskStatus] = None
     priority: Optional[TaskPriority] = None
@@ -58,9 +65,16 @@ class TaskUpdate(BaseModel):
     @field_validator("title")
     @classmethod
     def validate_title(cls, value: Optional[str]):
-        if value is not None and not value.strip():
+        if value is not None:
+            value = sanitize_text(value)
+        if value is not None and not value:
             raise ValueError("Title cannot be empty")
         return value
+
+    @field_validator("description")
+    @classmethod
+    def sanitize_description(cls, value: Optional[str]):
+        return sanitize_optional_text(value)
 
     @field_validator("due_date")
     @classmethod

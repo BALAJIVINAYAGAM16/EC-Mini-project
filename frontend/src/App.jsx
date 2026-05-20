@@ -12,6 +12,9 @@ import Documents from "./pages/Documents";
 import AuditLog from "./pages/AuditLog";
 import Notifications from "./pages/Notifications";
 import AIInsights from "./pages/AIInsights";
+import Billing from "./pages/Billing";
+import Plans from "./pages/Plans";
+import Organization from "./pages/Organization";
 
 function App() {
   return (
@@ -96,6 +99,9 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/billing" element={<Billing />} />
+        <Route path="/plans" element={<Plans />} />
+        <Route path="/organization" element={<Organization />} />
       </Routes>
     </BrowserRouter>
   );

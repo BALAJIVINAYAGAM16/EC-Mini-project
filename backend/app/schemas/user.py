@@ -3,6 +3,7 @@ from enum import Enum
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.core.security import BCRYPT_MAX_PASSWORD_BYTES
+from app.core.validation import sanitize_text
 
 
 class UserRole(str, Enum):
@@ -15,6 +16,11 @@ class UserBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
     role: UserRole
+
+    @field_validator("name")
+    @classmethod
+    def sanitize_name(cls, value: str) -> str:
+        return sanitize_text(value)
 
 
 class UserCreate(UserBase):

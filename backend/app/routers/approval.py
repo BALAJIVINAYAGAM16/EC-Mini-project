@@ -4,51 +4,65 @@ from typing import List
 
 from app.db.database import get_db
 from app.core.dependencies import get_current_user
-from app.schemas.approval import ApprovalCreate, ApprovalAction, ApprovalHistoryOut, ApprovalOut
-from app.services.approval_service import (
-    create_approval,
-    take_action,
-    get_approvals,
-    get_history
+
+from app.schemas.approval import (
+    ApprovalCreate,
+    ApprovalAction,
+    ApprovalHistoryOut,
+    ApprovalOut,
 )
 
-router = APIRouter(prefix="/approvals", tags=["Approvals"])
+from app.services.approval_service import (
+    create_approval_service,
+    take_action_service,
+    get_approvals_service,
+    get_history_service,
+)
+
+router = APIRouter(
+    prefix="/approvals",
+    tags=["Approvals"],
+)
 
 
-# ➕ Create approval
 @router.post("/", response_model=ApprovalOut)
-def create(
+def create_approval(
     payload: ApprovalCreate,
     db: Session = Depends(get_db),
-    user = Depends(get_current_user)
+    user=Depends(get_current_user),
 ):
-    return create_approval(payload, user, db)
+    return create_approval_service(payload, user, db)
 
 
-# 📄 Get approvals
 @router.get("/", response_model=List[ApprovalOut])
-def list_all(
+def get_approvals(
     db: Session = Depends(get_db),
-    user = Depends(get_current_user)
+    user=Depends(get_current_user),
 ):
-    return get_approvals(user, db)
+    return get_approvals_service(user, db)
 
 
-# 🔄 Take action
 @router.patch("/{approval_id}/action", response_model=ApprovalOut)
-def action(
+def take_action(
     approval_id: int,
     payload: ApprovalAction,
     db: Session = Depends(get_db),
-    user = Depends(get_current_user)
+    user=Depends(get_current_user),
 ):
-    return take_action(approval_id, payload, user, db)
+    return take_action_service(
+        approval_id,
+        payload,
+        user,
+        db,
+    )
 
 
-# 📜 History
-@router.get("/{approval_id}/history", response_model=List[ApprovalHistoryOut])
-def history(
+@router.get(
+    "/{approval_id}/history",
+    response_model=List[ApprovalHistoryOut],
+)
+def get_history(
     approval_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    return get_history(approval_id, db)
+    return get_history_service(approval_id, db)

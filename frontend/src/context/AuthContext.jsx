@@ -6,13 +6,17 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [user, setUser] = useState(null);
 
-  const login = useCallback((nextToken) => {
+  const login = useCallback((nextToken, nextRefreshToken) => {
     localStorage.setItem("token", nextToken);
+    if (nextRefreshToken) {
+      localStorage.setItem("refreshToken", nextRefreshToken);
+    }
     setToken(nextToken);
   }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
     setToken(null);
     setUser(null);
   }, []);
